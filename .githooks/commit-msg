@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+MSG_FILE="$1"
+MSG="$(sed -n '1p' "$MSG_FILE" | tr -d '\r\n' | sed 's/[[:space:]]*$//')"
+
+TYPES="build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test"
+
+REGEX="^(${TYPES})(\([a-z0-9._-]+\))?(!)?: [^ ].*$"
+
+if [[ "$MSG" =~ ^Merge\  ]]; then
+  exit 0
+fi
+
+if [[ "$MSG" =~ ^Revert\  ]]; then
+  exit 0
+fi
+
+if [[ ! "$MSG" =~ $REGEX ]]; then
+  cat >&2 <<EOF
+❌ Conventional Commit check failed.
+
+Your subject line:
+  $MSG
+
+Expected format:
+  type(scope?): short description
+Examples:
+  feat(parser): add support for quoted strings
+  fix: handle null pointer in api client
+  chore!: drop Node 14 support
+
+Allowed types:
+  $(sed 's/|/, /g' <<< "$TYPES")
+
+Tip: Body and footer (BREAKING CHANGE:, refs:) are optional and not checked here.
+EOF
+  exit 1
+fi
+
+exit 0
