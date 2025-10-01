@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+
+validate_range() {
+  local local_sha="$1"
+  local remote_sha="$2"
+
+  local range
+
+  if [[ "$remote_sha" == "0000000000000000000000000000000000000000" ]]; then
+    range="$local_sha"
+  else
+    range="${remote_sha}..${local_sha}"
+  fi
+
+  readarray -t subjects < <(git log --no-merges --format=%s "$range" 2>/dev/null || true) 2>/dev/null || {
+    subjects=()
+    while IFS= read -r line; do
+      subjects+=("$line")
+    done < <(git log --no-merges --format=%s "$range" 2>/dev/null || true)
+  }
+
+
+  if [[ ${#subjects[@]} -eq 0 ]]; then
+    return 0
+  fi
+
+  local TYPES="build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test"
+  local REGEX="^(${TYPES})(\([a-z0-9._-]+\))?(!)?: [^ ].*$"
+
+  local bad=()
+  for s in "${subjects[@]}"; do
+    if [[ "$s" =~ ^Revert\  ]]; then
+      continue
+    fi
+    if [[ ! "$s" =~ $REGEX ]]; then
+      bad+=("$s")
+    fi
+  done
+
+  if [[ ${#bad[@]} -gt 0 ]]; then
+    echo "❌ Push blocked: the following commit subjects are not Conventional Commits:" >&2
+    printf '  - %s\n' "${bad[@]}" >&2
+    cat >&2 <<'HINT'
+
+Expected pattern:
+  type(scope?): short description
+
+Examples:
+  feat(auth): add oauth login
+  fix: prevent crash on empty input
+  chore!: drop deprecated config
+
+Allowed types:
+  build, chore, ci, docs, feat, fix, perf, refactor, revert, style, test
+
+You can fix by:
+  - Amending the last commit:   git commit --amend
+  - Or interactive reword:      git rebase -i <base>
+  - Then push again:            git push --force-with-lease
+HINT
+    exit 1
+  fi
+}
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [[ "$local_sha" == "0000000000000000000000000000000000000000" ]]; then
+    continue
+  fi
+  validate_range "$local_sha" "$remote_sha"
+done
+
+exit 0
