@@ -34,6 +34,35 @@ services:
       - database
     profiles: ["dev"]
 
+# ---- Production ----
+  frontend-prod:
+    restart: unless-stopped
+    build:
+      context: ../frontend/
+      target: production
+    container_name: frontend-prod
+    ports:
+      - "80:80"
+    networks:
+      - frontend
+    profiles: ["prod"]
+
+  backend-prod:
+    restart: unless-stopped
+    build:
+      context: ../backend/
+      target: production
+    container_name: backend-prod
+    ports:
+      - "${PORT}:${PORT}"
+    env_file:
+      - ../.env
+    networks:
+      - backend
+      - database
+    profiles: ["prod"]
+
+
 volumes:
   frontend_node_modules:
   backend_node_modules:
