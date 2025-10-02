@@ -32,7 +32,7 @@ RUN bun build src/index.ts --compile --outfile server
 RUN ls -l
 
 # ---- Stage de Production ----
-FROM alpine:3.19 AS Production
+FROM alpine:3.19 AS production
 
 WORKDIR /app
 

@@ -5,9 +5,9 @@ ENV NODE_ENV=development
 WORKDIR /app
 
 COPY package.json ./
-COPY src ./
+COPY bun.lock ./
 
-RUN bun install
+RUN bun install --frozen-lockfile
 
 COPY . .
 
