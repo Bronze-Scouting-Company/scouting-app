@@ -23,21 +23,28 @@ ENV NODE_ENV=production
 WORKDIR /app
 
 COPY package.json ./
-COPY src ./
 
 RUN bun install
 
 COPY . .
 
-RUN ls -l
 RUN bun build src/index.ts --compile --outfile server
+RUN ls -l
 
 # ---- Stage de Production ----
-FROM alpine:3.19 AS production 
+FROM alpine:3.19 AS Production
+
+WORKDIR /app
+
+RUN apk add --no-cache libstdc++ libgcc dumb-init
 
 COPY --from=builder /app/server /app/server
 
-RUN chmod +x /app/server
+RUN chmod +x ./server
 
-CMD ["/app/server"]
+EXPOSE 3000
+
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+
+CMD ["./server"]
 
