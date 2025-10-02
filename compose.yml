@@ -1,0 +1,27 @@
+services:
+  frontend:
+    container_name: bsc-frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    networks:
+      - bsc-network
+
+  backend:
+    container_name: bsc-backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8081:3000"
+    networks:
+      - bsc-network
+
+networks:
+  bsc-network:
+    name: bsc-network
+    driver: bridge
