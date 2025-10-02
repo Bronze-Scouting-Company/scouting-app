@@ -50,7 +50,7 @@ cd ./infra
 case $COMMAND in
     up)
         echo -e "${GREEN}Démarrage de l'environnement ${PROFILE}...${NC}"
-        docker compose --profile $PROFILE --env-file $ENV_FILE up -d --build
+        docker compose --profile $PROFILE --env-file $ENV_FILE up -d
         echo -e "${GREEN}✓ Environnement ${PROFILE} démarré${NC}"
         ;;
     
@@ -63,7 +63,7 @@ case $COMMAND in
     restart)
         echo -e "${YELLOW}Redémarrage de l'environnement ${PROFILE}...${NC}"
         docker compose --profile $PROFILE --env-file $ENV_FILE down
-        docker compose --profile $PROFILE --env-file $ENV_FILE up -d --build
+        docker compose --profile $PROFILE --env-file $ENV_FILE up -d
         echo -e "${GREEN}✓ Environnement ${PROFILE} redémarré${NC}"
         ;;
     
@@ -74,7 +74,7 @@ case $COMMAND in
     
     build)
         echo -e "${BLUE}Rebuild des images ${PROFILE}...${NC}"
-        docker compose --profile $PROFILE build --no-cache
+        docker compose --profile $PROFILE --env-file $ENV_FILE build --no-cache
         echo -e "${GREEN}✓ Images ${PROFILE} reconstruites${NC}"
         ;;
     
