@@ -1,7 +1,9 @@
 {
   "name": "backend",
   "scripts": {
-    "dev": "bun run --hot src/index.ts"
+    "dev": "bun run --hot src/index.ts",
+    "build": "bun build src/index.ts --compiler --outdir dist",
+    "start": "bun run dist/index.js"
   },
   "dependencies": {
     "hono": "^4.9.9"
