@@ -140,45 +140,6 @@ infra/
     
 scripts/             # Scripts divers (seed, migrate, etc.)
 ```
-
----
-
-## 🔐 Variables d’environnement
-
-Créez un `.env` à la racine :
-
-```env
-# Base
-NODE_ENV=development
-APP_ORIGIN=http://localhost
-
-# API
-PORT=8080
-
-# DB
-DATABASE_URL=postgresql://app:app@postgres:5432/app
-æ
-# Redis
-REDIS_URL=redis://redis:6379
-
-# Auth
-AUTH_SECRET=change-me
-OAUTH_DISCORD_CLIENT_ID=xxx
-OAUTH_DISCORD_CLIENT_SECRET=xxx
-OAUTH_GOOGLE_CLIENT_ID=xxx
-OAUTH_GOOGLE_CLIENT_SECRET=xxx
-
-# S3
-S3_ENDPOINT=https://s3.fr-par.scw.cloud
-S3_REGION=fr-par
-S3_BUCKET=bsc-clips
-S3_ACCESS_KEY_ID=xxx
-S3_SECRET_ACCESS_KEY=xxx
-
-# FFmpeg
-FFMPEG_PATH=/usr/bin/ffmpeg
-```
-
 ---
 
 
