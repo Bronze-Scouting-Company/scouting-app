@@ -1,31 +1,31 @@
 {
-      "name": "scouting-app",
-      "version": "0.0.0",
-      "scripts": {
-            "biome": "biome",
-            "lint": "biome lint",
-            "format": "biome format",
-            "format:write": "biome format --write",
-            "lint:fix": "biome lint --write",
-            "precommit": "biome format --write && biome lint --write",
-            "check": "biome check",
-            "check:fix": "biome check --write",
-            "checks:ci": "bun run typecheck && biome ci",
-            "typecheck": "tsc --build --pretty ./tsconfig.base.json",
-            "dev": "concurrently \"cd backend && bun run dev\" \"cd frontend && bun run dev\"",
-            "dev:backend": "cd backend && bun run dev",
-            "dev:frontend": "cd frontend && bun run dev",
-            "build": "bun run build:backend && bun run build:frontend",
-            "build:backend": "cd backend && bun run build",
-            "build:frontend": "cd frontend && bun run build"
-      },
-      "workspaces": [
-            "backend",
-            "frontend"
-      ],
-      "devDependencies": {
-            "@biomejs/biome": "2.2.5",
-            "concurrently": "^9.2.1",
-            "typescript": "~5.7.2"
-      }
+	"name": "scouting-app",
+	"version": "0.0.0",
+	"scripts": {
+		"biome": "biome",
+		"lint": "biome lint",
+		"format": "biome format",
+		"format:fix": "biome format --write",
+		"lint:fix": "biome lint --write",
+		"precommit": "biome format --write && biome lint --write",
+		"check": "biome check",
+		"check:fix": "biome check --write",
+		"checks:ci": "bun run typecheck && biome ci",
+		"typecheck": "tsc --build --pretty ./tsconfig.base.json",
+		"dev": "concurrently \"cd backend && bun run dev\" \"cd frontend && bun run dev\"",
+		"dev:backend": "cd backend && bun run dev",
+		"dev:frontend": "cd frontend && bun run dev",
+		"build": "bun run build:backend && bun run build:frontend",
+		"build:backend": "cd backend && bun run build",
+		"build:frontend": "cd frontend && bun run build"
+	},
+	"workspaces": [
+		"backend",
+		"frontend"
+	],
+	"devDependencies": {
+		"@biomejs/biome": "2.2.5",
+		"concurrently": "^9.2.1",
+		"typescript": "~5.7.2"
+	}
 }
