@@ -6,4 +6,6 @@ app.get("/", (c) => {
       return c.text("Hello BEC!");
 });
 
+app.get('/health', (c) => c.text('OK'))
+
 export default app;
