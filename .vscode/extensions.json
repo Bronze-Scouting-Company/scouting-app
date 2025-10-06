@@ -1,8 +1,8 @@
 {
-    "recommendations": [
-        "YoavBls.pretty-ts-errors",
-        "biomejs.biome",
-        "formulahendry.auto-complete-tag",
-        "formulahendry.auto-rename-tag"
-    ]
+	"recommendations": [
+		"YoavBls.pretty-ts-errors",
+		"biomejs.biome",
+		"formulahendry.auto-complete-tag",
+		"formulahendry.auto-rename-tag"
+	]
 }
