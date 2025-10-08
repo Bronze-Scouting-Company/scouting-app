@@ -1,10 +1,47 @@
 services:
+  postgres:
+    image: postgres:18
+    env_file: .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:8.2.2
+    env_file: .env
+    command: >
+      redis-server
+      --appendonly yes
+      --save 900 1 --save 300 10 --save 60 10000
+      --requirepass ${REDIS_PASSWORD}
+      --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: [ "CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD} ping | grep PONG" ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
   frontend:
     container_name: bsc-frontend
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    restart: unless-stopped
     ports:
       - "8080:80"
     depends_on:
@@ -17,13 +54,23 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+    restart: unless-stopped
 
   backend:
     container_name: bsc-backend
     build:
       context: ./backend
       dockerfile: Dockerfile
-    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      PORT: "8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     ports:
       - "8081:3000"
     networks:
@@ -34,6 +81,11 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  pg: {}
+  redisdata: {}
 
 networks:
   bsc-network:

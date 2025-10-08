@@ -1,3 +1,4 @@
+# ---- Build ----
 FROM oven/bun:alpine AS builder
 ENV NODE_ENV=production
 
@@ -11,6 +12,8 @@ COPY . .
 
 RUN bun build src/index.ts --compile --minify --outfile server
 
+
+# ---- Runtime ----
 FROM alpine:3.21
 
 RUN apk add --no-cache libstdc++ libc6-compat

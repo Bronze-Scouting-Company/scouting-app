@@ -1,3 +1,4 @@
+# ---- Build ----
 FROM oven/bun:alpine AS builder
 ENV NODE_ENV=production
 
@@ -11,6 +12,7 @@ COPY . .
 
 RUN bunx --bun vite build  && chown 101:101 -R ./dist
 
+# ---- Runtime ----
 FROM nginx:1.29-alpine
 
 COPY --from=builder /app/dist /usr/share/nginx/html
