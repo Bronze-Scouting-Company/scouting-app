@@ -1,0 +1,350 @@
+// --------------------------------------------------------
+// Prisma Schema — BSC Scouting (PostgreSQL)
+// --------------------------------------------------------
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Enums
+enum Role {
+  COMMUNITY
+  EXPERT
+  ADMIN
+}
+
+enum VoteType {
+  UP
+  DOWN
+  STAR
+  VALIDATED
+}
+
+enum ReviewVisibility {
+  PUBLIC
+  EXPERT
+}
+
+// y'a pas d'opgg ici
+enum LinkKind {
+  DPM
+  LIQUIPEDIA
+  TWITTER
+  YOUTUBE
+  DISCORD
+  OTHER
+}
+
+enum ClipState {
+  PENDING
+  READY
+  FAILED
+}
+
+enum StatSource {
+  RIOT
+  GRID
+  LEAGUEPEDIA
+  LOLESPORTS
+  OTHER
+}
+
+enum ProspectStatus {
+  PROPOSED
+  VALIDATED
+  REJECTED
+}
+
+enum TagType {
+  PLAYSTYLE   // ex: OTP, AGGRO, UTILITAIRE
+  RISK        // ex: drama, comportement
+  META        // ex: champion pool meta, patch-sensitive
+  OTHER
+}
+
+enum SubmissionType {
+  PLAYER
+  RUMOR
+  LINK
+  CLIP
+}
+
+enum SubmissionState {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// Users & Auth
+
+model User {
+  id          String     @id @default(uuid()) @db.Uuid
+  email       String     @unique @db.Citext   // case-insensitive
+  username    String?    @db.Citext
+  roles       UserRole[] // mapping table pour rôles multiples
+  reputation  Int        @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // relations
+  reviews     Review[]
+  votes       Vote[]
+  follows     Follow[]
+  playerTags  PlayerTag[]    @relation("UserAddedTags")
+  submissions Submission[]
+  auditLogs   AuditLog[]
+}
+
+/// Rôles utilisateur (N:1 par rôle)
+model UserRole {
+  id     String @id @default(uuid()) @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @db.Uuid
+  role   Role
+
+  @@unique([userId, role])
+}
+
+/// Joueurs & profil
+
+model Player {
+  id            String           @id @default(uuid()) @db.Uuid
+  summonerName  String
+  region        String
+  roleLane      String
+  country       String?
+  langs         String[]         @db.Text
+  team          String?
+  contractEnd   DateTime?
+  salary        Int?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  // relations
+  prospect      ProspectProfile?
+  links         LinkOut[]
+  tags          PlayerTag[]
+  votes         Vote[]
+  reviews       Review[]
+  clips         MediaClip[]
+  stats         StatSnapshot[]
+  contacts      PlayerContact[]
+  history       PlayerHistory[]
+  follows       Follow[]
+  submissions   Submission[]
+}
+
+model ProspectProfile {
+  id               String         @id @default(uuid()) @db.Uuid
+  player           Player         @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId         String         @unique @db.Uuid
+  status           ProspectStatus @default(PROPOSED)
+  bio              String?
+  ratingCommunity  Float?
+  ratingExperts    Float?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+}
+
+/// Liens externes rapides (opgg, dpm, liquipedia, etc.)
+model LinkOut {
+  id        String   @id @default(uuid()) @db.Uuid
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId  String   @db.Uuid
+  kind      LinkKind
+  url       String
+  createdAt DateTime @default(now())
+
+  @@index([playerId, kind])
+  @@unique([playerId, kind, url])
+}
+
+/// Tags & relation N:N
+
+model Tag {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique
+  type      TagType  @default(OTHER)
+  createdAt DateTime @default(now())
+
+  players   PlayerTag[]
+}
+
+// Pour le user/userId optionnel, si l'utilisateur est delete de la base (S/O RGPD) faut garder son historique de soumissions
+model PlayerTag {
+  // pivot table N:N + trace de qui a ajouté
+  id        String   @id @default(uuid()) @db.Uuid
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId  String   @db.Uuid
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  tagId     String   @db.Uuid
+  addedBy   User?    @relation("UserAddedTags", fields: [addedById], references: [id], onDelete: SetNull)
+  addedById String?
+  createdAt DateTime @default(now())
+
+  @@unique([playerId, tagId])
+  @@index([tagId])
+}
+
+/// Votes (idempotence par user,player,type)
+
+model Vote {
+  id        String   @id @default(uuid()) @db.Uuid
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId  String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String   @db.Uuid
+  type      VoteType
+  weight    Int      @default(1)
+  createdAt DateTime @default(now())
+
+  // empêche le double-vote d’un même type par user sur un player
+  @@unique([playerId, userId, type])
+  @@index([playerId, type])
+}
+
+/// Reviews (experts vs public) + pièces jointes (S3)
+
+model Review {
+  id          String           @id @default(uuid()) @db.Uuid
+  player      Player           @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId    String           @db.Uuid
+  author      User             @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId    String           @db.Uuid
+  visibility  ReviewVisibility @default(PUBLIC) // PUBLIC ou EXPERT
+  score       Int               // 0..100 (ou 1..10 selon ton choix)
+  title       String?
+  body        String?
+  attachments String[]         @db.Text       // urls S3 ou externes
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([playerId, visibility])
+  @@index([authorId])
+}
+
+/// Clips vidéos (upload S3 + transcode HLS), on l'utilise pas pour le moment mais azy au cas où
+
+model MediaClip {
+  id          String    @id @default(uuid()) @db.Uuid
+  player      Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId    String    @db.Uuid
+  storageKey  String    // clé S3 (input)
+  url         String?   // URL HLS final
+  thumbUrl    String?
+  durationSec Int?
+  state       ClipState @default(PENDING)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([playerId, state])
+  @@unique([storageKey])
+}
+
+/// Snapshots de stats (multi-source, par période/patch)
+
+model StatSnapshot {
+  id          String     @id @default(uuid()) @db.Uuid
+  player      Player     @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId    String     @db.Uuid
+  periodStart DateTime
+  periodEnd   DateTime
+  patch       String?
+  source      StatSource
+  kda         Float?
+  dpm         Float?
+  csPerMin    Float?
+  wr          Float?
+  metrics     Json
+  createdAt   DateTime    @default(now())
+
+  @@index([playerId, source])
+  @@index([playerId, patch])
+  @@unique([playerId, source, periodStart, periodEnd])
+}
+
+/// Contacts & entourage (staff, agent, coach, etc.)
+
+model PlayerContact {
+  id        String   @id @default(uuid()) @db.Uuid
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId  String   @db.Uuid
+  name      String
+  role      String?
+  email     String?  @db.Citext
+  twitter   String?
+  phone     String?
+  notes     String?
+  createdAt DateTime @default(now())
+
+  @@index([playerId])
+}
+
+/// Historique de carrière (type Transfermarkt light)
+
+model PlayerHistory {
+  id        String   @id @default(uuid()) @db.Uuid
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId  String   @db.Uuid
+  team      String
+  coach     String?
+  fromDate  DateTime
+  toDate    DateTime?
+  result    String?
+  fee       Int?
+  createdAt DateTime @default(now())
+
+  @@index([playerId, fromDate])
+}
+
+/// Follow / Notifications (fil perso : rumeurs, fin de contrat, live)
+
+model Follow {
+  id        String   @id @default(uuid()) @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String   @db.Uuid
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId  String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  @@unique([userId, playerId])
+  @@index([playerId])
+}
+
+/// Soumissions de la communauté (joueur, rumeur, lien, clip) modérées
+// Pour le user/userId optionnel, si l'utilisateur est delete de la base (S/O RGPD) faut garder son historique de soumissions
+model Submission {
+  id        String          @id @default(uuid()) @db.Uuid
+  type      SubmissionType
+  state     SubmissionState @default(PENDING)
+  payload   Json            // contenu brut (normalisé côté app)
+  user      User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId    String?
+  player    Player?         @relation(fields: [playerId], references: [id], onDelete: SetNull)
+  playerId  String?
+  createdAt DateTime        @default(now())
+  decidedAt DateTime?
+
+  @@index([type, state])
+  @@index([playerId])
+}
+
+/// Journal d’audit pour actions sensibles (modération, édition)
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  actorId   String?
+  entity    String   // ex: "Player", "Review", "Submission"
+  entityId  String   // id de l’entité
+  action    String   // ex: "APPROVE", "REJECT", "UPDATE", "DELETE"
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+}

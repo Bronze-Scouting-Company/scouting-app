@@ -1,38 +1,88 @@
 name: CI
 
-on: [push, pull_request]
+on: [ push, pull_request ]
 
-jobs: 
-    checks:
-        runs-on: ubuntu-latest
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
 
-        steps:
-        - uses: actions/checkout@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 'latest'
 
-        - name: Setup Bun
-          uses: oven-sh/setup-bun@v2
-          with:
-            bun-version: 'latest'
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
 
-        - name: Install dependencies
-          run : bun install
+      - name: Checks
+        run: bun checks:ci
 
-        - name: Checks
-          run: bun checks:ci
+  tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+          POSTGRES_DB: bsc
+        ports:
+          - "5432:5432"
+        options: >-
+          --health-cmd="pg_isready -U app -d bsc"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+      redis:
+        image: redis:7
+        ports:
+          - "6379:6379"
+        options: >-
+          --health-cmd="redis-cli ping || exit 1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    env:
+      DATABASE_URL: postgresql://app:app@localhost:5432/bsc?schema=public
+      REDIS_URL: redis://localhost:6379
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
 
-    build: 
-        runs-on: ubuntu-latest
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 'latest'
 
-        steps:
-        - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
 
-        - name: Setup Bun
-          uses: oven-sh/setup-bun@v2
-          with:
-            bun-version: 'latest'
+      - name: Prisma generate
+        run: bunx prisma generate --schema db/schema.prisma
 
-        - name: Install dependencies
-          run : bun install
+      - name: Prisma migrate (deploy)
+        run: bunx prisma migrate deploy --schema db/schema.prisma
 
-        - name: Build
-          run: bun run build
+# Y'a pas de tests pour l'instant
+#      - name: Run unit tests
+#        run: bun test --run --reporter=verbose
+
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 'latest'
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun run build
