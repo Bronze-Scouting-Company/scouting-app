@@ -61,10 +61,10 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Prisma generate
-        run: bunx prisma generate --schema packages/db/schema.prisma
+        run: bunx prisma generate --schema db/schema.prisma
 
       - name: Prisma migrate (deploy)
-        run: bunx prisma migrate deploy --schema packages/db/schema.prisma
+        run: bunx prisma migrate deploy --schema db/schema.prisma
 
       - name: Run unit tests
         run: bun test --run --reporter=verbose
