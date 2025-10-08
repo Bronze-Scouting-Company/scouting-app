@@ -1,15 +1,15 @@
 services:
   postgres:
     image: postgres:18
-    env_file: .env
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    ports:
-      - "5432:5432"
     volumes:
       - pg:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d
+    expose:
+      - "5432"
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
       interval: 10s
@@ -19,17 +19,18 @@ services:
 
   redis:
     image: redis:8.2.2
-    env_file: .env
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
     command: >
       redis-server
       --appendonly yes
       --save 900 1 --save 300 10 --save 60 10000
       --requirepass ${REDIS_PASSWORD}
       --maxmemory-policy allkeys-lru
-    ports:
-      - "6379:6379"
     volumes:
       - redisdata:/data
+    expose:
+      - "6379"
     healthcheck:
       test: [ "CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD} ping | grep PONG" ]
       interval: 10s
@@ -42,6 +43,12 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_NODE_ENV: ${NODE_ENV}
+        VITE_APP_ORIGIN: ${APP_ORIGIN}
+        VITE_S3_ENDPOINT: ${S3_ENDPOINT}
+        VITE_S3_REGION: ${S3_REGION}
+        VITE_S3_BUCKET: ${S3_BUCKET}
     ports:
       - "8080:80"
     depends_on:
@@ -61,11 +68,27 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    env_file: .env
-    environment:
-      DATABASE_URL: ${DATABASE_URL}
-      REDIS_URL: ${REDIS_URL}
-      PORT: "8080"
+      args:
+        NODE_ENV: ${NODE_ENV}
+        APP_ORIGIN: ${APP_ORIGIN}
+        PORT: ${PORT}
+        DATABASE_URL: ${DATABASE_URL}
+        POSTGRES_DB: ${POSTGRES_DB}
+        POSTGRES_USER: ${POSTGRES_USER}
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        REDIS_URL: ${REDIS_URL}
+        REDIS_PASSWORD: ${REDIS_PASSWORD}
+        AUTH_SECRET: ${AUTH_SECRET}
+        OAUTH_DISCORD_CLIENT_ID: ${OAUTH_DISCORD_CLIENT_ID}
+        OAUTH_DISCORD_CLIENT_SECRET: ${OAUTH_DISCORD_CLIENT_SECRET}
+        OAUTH_GOOGLE_CLIENT_ID: ${OAUTH_GOOGLE_CLIENT_ID}
+        OAUTH_GOOGLE_CLIENT_SECRET: ${OAUTH_GOOGLE_CLIENT_SECRET}
+        S3_ENDPOINT: ${S3_ENDPOINT}
+        S3_REGION: ${S3_REGION}
+        S3_BUCKET: ${S3_BUCKET}
+        S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
+        S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
+        FFMPEG_PATH: ${FFMPEG_PATH}
     depends_on:
       postgres:
         condition: service_healthy
