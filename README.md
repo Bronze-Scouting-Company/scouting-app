@@ -39,7 +39,7 @@ Processus simple pour contribuer avec des branches propres, commits normalisés 
   - `perf/` pour des améliorations de performance
   - `integration/` pour des branches liées à l'intégration avant une fusion
 
-** Créer une branche **
+**Créer une branche**
 
 ```bash
 # Depuis main
@@ -50,7 +50,7 @@ git pull origin main
 git checkout -b feat/ma-nouvelle-fonctionnalite
 ```
 
-** Commits - Conventional Commits **
+**Commits - Conventional Commits**
 
 Respectez le format: `<type>(<scope>): <message>`
 Types usuels: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `ci`, `perf`, `integration`
@@ -62,7 +62,7 @@ Exemples:
 - `docs(readme): mettre à jour les instructions d'installation`
 - `test(api): couvrir GET /api/players`
 
-** Installer les githooks **
+**Installer les githooks**
 
 Exécuter le script d’installation des hooks pour valider automatiquement le format des commits et lancer les checks locaux.
 
@@ -76,7 +76,7 @@ Après installation:
 - Le hook `commit-msg` valide le format Conventional Commits.
 - Le hook `pre-commit` peut lancer `lint/typecheck/test` selon la configuration.
 
-** Vérifications locales **
+**Vérifications locales**
 
 ```bash
 bun run lint
@@ -84,7 +84,7 @@ bun run typecheck
 bun run test
 ```
 
-** Ouvrir une PR **
+**Ouvrir une PR**
 
 ```bash
 git push -u origin feature/ajout_page_profil
@@ -104,15 +104,15 @@ git push -u origin feature/ajout_page_profil
 
 **Back (Monolithe TS)**
 - **Hono** (HTTP basé Fetch) sur **Bun**
-- **Prisma ≥ 5.12** ↔ **PostgreSQL**
-- **Redis** (sessions, rate-limit, compteurs)
+- **Prisma ≥ 5.12** ↔ **PostgreSQL 18**
+- **Redis 8.2.2** (sessions, rate-limit, compteurs)
 - **BullMQ** (jobs) + bull-board (dashboard) — via **ioredis**
 - **BetterAuth** (OAuth Discord/Google) — cookies signés
 - **S3-compatible** (Scaleway/OVH/Wasabi) pour médias
 - **FFmpeg** (transcodage HLS + thumbnails), spawn via Bun
 
 **Ops**
-- Docker + **Nginx** (reverse proxy + statiques)
+- Docker + **Nginx 1.29** (reverse proxy + statiques)
 - CI GitHub Actions (lint/test/build/migrate/quality)
 
 ---
@@ -125,6 +125,7 @@ frontend/              # React + Vite (SPA)
     public/
     index.html
     vite.config.ts
+    Dockerfile         # Nginx 1.29-Alpine 
 
 backend/               # Hono (API) + workers BullMQ sur Bun
     src/
@@ -132,26 +133,84 @@ backend/               # Hono (API) + workers BullMQ sur Bun
         workers/           # BullMQ workers (ingestion, transcode, notifs)
         lib/               # Utilitaires (db, auth, storage, rbac)
         clients/           # SDK Riot, Leaguepedia, Twitch, GRID, LoL Esports
-    prisma/              # Schema Prisma + migrations
+    Dockerfile         # Alpine 3.21 + binaire compilé
 
-infra/
-    docker-compose.yml
-    nginx.conf
+db/
+    init/              # Scripts d'init PostgreSQL (extensions, index)
+        001_extensions.sql
+        002_index.sql
+    schema.prisma      # Schéma Prisma
+
+docker-compose.yml     # Docker Compose (postgres, redis, frontend, backend)
     
 scripts/             # Scripts divers (seed, migrate, etc.)
 ```
 ---
 
+## 🗄️ Base de données
+
+**PostgreSQL 18** avec les extensions suivantes (chargées automatiquement) :
+* `pgcrypto` : fonctions cryptographiques
+* `pg_trgm` : recherche trigramme pour recherche floue
+* `unaccent` : normalisation des accents
+* `citext` : colonnes texte insensibles à la casse
+
+Schéma Prisma : voir [`db/schema.prisma`](db/schema.prisma)
+
+Principales entités :
+* `User + UserRole` : utilisateurs avec rôles multiples (COMMUNITY, EXPERT, ADMIN)
+* `Player + ProspectProfile` : profils joueurs avec statut de validation
+* `Tag + PlayerTag` : système de tags avec traçabilité
+* `Vote` : votes avec idempotence (unique par user/player/type)
+* `Review` : évaluations expert/public avec attachements S3
+* `MediaClip` : clips vidéo avec état de transcodage
+* `StatSnapshot` : statistiques multi-sources avec historique
+* `PlayerHistory` : historique de carrière type Transfermarkt
+* `Follow` : suivi de joueurs pour notifications
+* `Submission` : soumissions communautaires en modération
+* `AuditLog` : journal d'audit des actions sensibles
+---
+
+## 🐳 Images Docker 
+
+**Backend** : `oven/bun:alpine` (build) → `alpine:3.21` (runtime)
+* Compilation en binaire standalone avec `bun build --compile`
+* Variables d'environnement injectées au build-time dans `generated-env.ts`
+
+**Frontend** : `oven/bun:alpine` (build) → `nginx:1.29-alpine` (runtime)
+* Build Vite optimisé avec variables d'environnement `VITE_*`
+* Serveur Nginx non-root (user `nginx`)
+
+**PostgreSQL** : `postgres:18`
+* Extensions PostgreSQL chargées automatiquement via `/docker-entrypoint-initdb.d`
+
+**Redis** : `redis:8.2.2`
+* Configuration avec persistence (AOF + RDB)
+* Politique d'éviction allkeys-lru
+---
+## ▶️ Démarrage rapide (Docker Compose)
+
+```bash
+# Créer le fichier .env
+cp .env.example .env
+# Éditer .env avec vos valeurs
+
+# Lancer les services
+docker compose up -d
+
+# Vérifier les logs
+docker compose logs -f
+
+# Arrêter les services
+docker compose down
+```
 
 **Accès**
 - Front SPA : `http://localhost/`
-- API health : `http://localhost/api/healthz`
-- Bull Board : `http://localhost/admin/queues`
-
+- API health : `http://localhost/api/health`
+- API Backend : `http://localhost:8081`
 ---
-
-## ▶️ Démarrage en local (sans Docker, **Bun** requis)
-
+## ▶️ Démarrage en local (sans Docker, Bun requis)
 ```bash
 # Installer Bun https://bun.sh
 bun --version
@@ -160,21 +219,24 @@ bun --version
 bun install
 
 # Prisma
-bunx prisma generate
-bunx prisma migrate dev
-bunx prisma db seed
+bunx prisma generate --schema db/schema.prisma
+bunx prisma migrate dev --schema db/schema.prisma
+bunx prisma db seed --schema db/schema.prisma
 
-# API (Hono + Bun)
-bun --filter @apps/api dev     # http://localhost:8080
+# Lancer en développement (backend + frontend en parallèle)
+bun run dev
 
-# Worker (BullMQ)
-bun --filter @apps/worker dev
-
-# Front (Vite)
-bun --filter @apps/web dev     # http://localhost:5173
+# Ou séparément
+bun run dev:backend  # http://localhost:3000
+bun run dev:frontend # http://localhost:5173
 ```
 
+**Accès**
+- Front SPA : `http://localhost/`
+- API health : `http://localhost/api/health`
+- API Backend : `http://localhost:8081`
 ---
+
 
 ## 🔌 Endpoints (extraits)
 
@@ -210,7 +272,7 @@ bun --filter @apps/web dev     # http://localhost:5173
 - **RBAC** + **réputation** (promotion auto “expert”).
 - **Rate-limit** IP+user (Redis), **idempotency keys** (votes, webhooks).
 - **Audit log** des modérations.
-- **Sanitisation** des liens externes (opgg/liquipedia/twitter).
+- **Sanitisation** des liens externes (dpm/liquipedia/twitter).
 
 ---
 
@@ -218,7 +280,7 @@ bun --filter @apps/web dev     # http://localhost:5173
 
 - **Prisma** : utilisez **Prisma ≥ 5.12** (ou version actuelle compatible Bun). `bunx prisma generate` & `migrate` OK.
 - **BullMQ / ioredis** : compatibles sous Bun (Node-API support). Prenez des versions récentes.
-- **Vite** : lancé via Bun (`bun --filter @apps/web dev`).
+- **Vite** : lancé via Bun (`bunx --bun vite).
 - **Modules natifs** : vérifiez la compatibilité Bun si vous en ajoutez.
 
 ---
@@ -228,14 +290,20 @@ bun --filter @apps/web dev     # http://localhost:5173
 ```json
 {
   "scripts": {
-    "build": "bun run -b apps/web && bun run -b apps/api && bun run -b apps/worker",
-    "dev": "bun run -b apps/api & bun run -b apps/worker & bun run -b apps/web",
-    "lint": "biome check .",
-    "typecheck": "tsc -b",
-    "migrate": "bunx prisma migrate deploy",
-    "seed": "bunx prisma db seed",
-    "prisma:gen": "bunx prisma generate",
-    "test": "vitest run"
+    "dev": "concurrently \"cd backend && bun run dev\" \"cd frontend && bun run dev\"",
+    "build": "bun run build:backend && bun run build:frontend",
+    "lint": "biome lint",
+    "format": "biome format",
+    "format:fix": "biome format --write",
+    "lint:fix": "biome lint --write",
+    "check": "biome check",
+    "check:fix": "biome check --write",
+    "checks:ci": "bun run typecheck && biome ci",
+    "typecheck": "tsc --build --pretty ./tsconfig.base.json",
+    "prisma:gen": "bunx prisma generate --schema db/schema.prisma",
+    "prisma:migrate:dev": "bunx prisma migrate dev --schema db/schema.prisma",
+    "prisma:migrate:deploy": "bunx prisma migrate deploy --schema db/schema.prisma",
+    "prisma:seed": "bunx prisma db seed --schema db/schema.prisma"
   }
 }
 ```
