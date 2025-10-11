@@ -46,9 +46,17 @@ jobs:
           --health-timeout=5s
           --health-retries=5
     env:
+      NODE_ENV: test
+      APP_ORIGIN: http://localhost:8080
+      API_ORIGIN: http://localhost:8081
+      COOKIE_NAME: bsc_session
+      COOKIE_DOMAIN: localhost
+      COOKIE_SECURE: "false"
+      COOKIE_SAMESITE: Lax
+      SESSION_TTL_SECONDS: "2592000"
+
       DATABASE_URL: postgresql://app:app@localhost:5432/bsc?schema=public
       REDIS_URL: redis://localhost:6379
-      NODE_ENV: test
     steps:
       - uses: actions/checkout@v4
 
